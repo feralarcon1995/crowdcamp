@@ -26,16 +26,17 @@ contract CrowdfundingProject is Admin {
         address fundingTokenAddress,
         uint256 fundingGoal
     ) Admin(initialOwner) {
-        _symbol = _fundingTokenContract.symbol();
         _projectName = projectName;
         _projectDescription = projectDescription;
         _fundingTokenContract = IERC20(fundingTokenAddress);
+        _symbol = IERC20(fundingTokenAddress).symbol();
         _fundingGoal = fundingGoal;
     }
 
     struct ProjectInfo {
         string projectName;
         string projectDescription;
+        string symbol;
         address fundingTokenAddress;
         uint256 fundingGoal;
         uint256 currentFunding;
@@ -45,7 +46,7 @@ contract CrowdfundingProject is Admin {
     event Contribute(address contributor, uint256 amount);
 
     function getProjectInfo() public view returns(ProjectInfo memory) {
-        return ProjectInfo(_projectName, _projectDescription, _fundingTokenAddress, _fundingGoal, _currentFunding, _contributors);
+        return ProjectInfo(_projectName, _projectDescription, _symbol, _fundingTokenAddress, _fundingGoal, _currentFunding, _contributors);
     }
 
     function getProjectName() public view returns(string memory) {

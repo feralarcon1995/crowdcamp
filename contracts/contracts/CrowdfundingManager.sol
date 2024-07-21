@@ -31,7 +31,7 @@ contract CrowdfundingManager is Admin {
         string memory projectDescription,
         address fundingTokenAddress,
         uint256 fundingGoal,
-        uint256 _salt
+        string memory _salt
     ) public onlyOwner(address(0)) {
         bytes memory bytecode = abi.encodePacked(
             type(CrowdfundingProject).creationCode,
@@ -45,10 +45,12 @@ contract CrowdfundingManager is Admin {
         );
 
         address contractAddress;
+        bytes32 hashedSalt = keccak256(bytes(_salt));
+
         assembly {
-            contractAddress := create2(0xFF, add(bytecode, 0x20), mload(bytecode), _salt)
+            contractAddress := create2(0, add(bytecode, 0x20), mload(bytecode), hashedSalt)
         }
-        require(contractAddress == address(0), "CREATE2: Failed on deploy CrowdfundingProject.sol");
+        require(contractAddress != address(0), "CREATE2: Failed on deploy CrowdfundingProject.sol");
 
         emit CrowdfundingProjectCreated(contractAddress, projectName, fundingGoal);
 
