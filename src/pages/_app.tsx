@@ -7,10 +7,15 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 
 import { config } from '../wagmi';
+import { useEffect } from 'react';
 
 const client = new QueryClient();
 
 function MyApp({ Component, pageProps }: AppProps) {
+  useEffect(() => {
+    document.body.classList.add('dark');
+  }, []);
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={client}>
