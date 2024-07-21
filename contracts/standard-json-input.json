@@ -1,0 +1,42 @@
+{
+		"language": "Solidity",
+		"sources": {
+			"contracts/CrowdFundingManager.sol": {
+				"content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.19;\r\n\r\nimport \"./CrowdfundingProject.sol\";\r\n\r\ncontract CrowdfundingManager is Admin {\r\n    address[] _crowdfundingContracts;\r\n\r\n    constructor(\r\n        address initialOwner\r\n    ) Admin(initialOwner) { }\r\n\r\n    event CrowdfundingProjectCreated(address deployedAddress, string projectName, uint256 fundingGoal);\r\n\r\n    function getCrowdfundingProjects() public view returns(address[] memory) {\r\n        return _crowdfundingContracts;\r\n    }\r\n\r\n    function removeCrowdfundingProject(address contractAddress) public {\r\n        address[] memory filteredProjects;\r\n\r\n        for (uint i; i < _crowdfundingContracts.length; i++) {\r\n            if (_crowdfundingContracts[i] != contractAddress) filteredProjects[i] = _crowdfundingContracts[i];\r\n        }\r\n\r\n        _crowdfundingContracts = filteredProjects;\r\n    }\r\n\r\n    function addCrowdfundingProject(\r\n        string memory projectName,\r\n        string memory projectDescription,\r\n        address fundingTokenAddress,\r\n        uint256 fundingGoal,\r\n        uint256 _salt\r\n    ) public onlyOwner(address(0)) {\r\n        bytes memory bytecode = abi.encodePacked(\r\n            type(CrowdfundingProject).creationCode,\r\n            abi.encode(\r\n                msg.sender,\r\n                projectName,\r\n                projectDescription,\r\n                fundingTokenAddress,\r\n                fundingGoal\r\n            )\r\n        );\r\n\r\n        address contractAddress;\r\n        assembly {\r\n            contractAddress := create2(0xFF, add(bytecode, 0x20), mload(bytecode), _salt)\r\n        }\r\n        require(contractAddress == address(0), \"CREATE2: Failed on deploy CrowdfundingProject.sol\");\r\n\r\n        emit CrowdfundingProjectCreated(contractAddress, projectName, fundingGoal);\r\n\r\n        _crowdfundingContracts.push(contractAddress);\r\n\r\n    }\r\n}"
+			},
+			"contracts/CrowdfundingProject.sol": {
+				"content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.19;\r\n\r\nimport \"./Admin.sol\";\r\n\r\ninterface IERC20 {\r\n    function transfer(address to, uint256 value) external returns (bool);\r\n    function symbol() external returns(string memory);\r\n}\r\n\r\ncontract CrowdfundingProject is Admin {\r\n    address _fundingTokenAddress;\r\n    string _projectName;\r\n    string _symbol;\r\n    string _projectDescription;\r\n    IERC20 _fundingTokenContract;\r\n    uint256 _fundingGoal;\r\n    uint256 _currentFunding;\r\n    mapping(address => uint256) _contributions;\r\n    address[] _contributors;\r\n\r\n    constructor(\r\n        address initialOwner,\r\n        string memory projectName,\r\n        string memory projectDescription,\r\n        address fundingTokenAddress,\r\n        uint256 fundingGoal\r\n    ) Admin(initialOwner) {\r\n        _symbol = _fundingTokenContract.symbol();\r\n        _projectName = projectName;\r\n        _projectDescription = projectDescription;\r\n        _fundingTokenContract = IERC20(fundingTokenAddress);\r\n        _fundingGoal = fundingGoal;\r\n    }\r\n\r\n    struct ProjectInfo {\r\n        string projectName;\r\n        string projectDescription;\r\n        address fundingTokenAddress;\r\n        uint256 fundingGoal;\r\n        uint256 currentFunding;\r\n        address[] contributors;\r\n    }\r\n\r\n    event Contribute(address contributor, uint256 amount);\r\n\r\n    function getProjectInfo() public view returns(ProjectInfo memory) {\r\n        return ProjectInfo(_projectName, _projectDescription, _fundingTokenAddress, _fundingGoal, _currentFunding, _contributors);\r\n    }\r\n\r\n    function getProjectName() public view returns(string memory) {\r\n        return _projectName;\r\n    }\r\n\r\n    function getFundingGoal() public view returns(uint256) {\r\n        return _fundingGoal;\r\n    }\r\n\r\n    function getCurrentFunding() public view returns(uint256) {\r\n        return _currentFunding;\r\n    }\r\n\r\n    function getCompletionPercentage() public view returns(uint256) {\r\n        return _currentFunding * 100 / _fundingGoal;\r\n    }\r\n\r\n    function setProjectName(address caller, string memory name) public onlyOwner(caller) {\r\n        _projectName = name;\r\n    }\r\n\r\n    function setProjectDescription(address caller, string memory description) public onlyOwner(caller) {\r\n        _projectDescription = description;\r\n    }\r\n\r\n    function contribute(address contributor, uint256 amount) public onlyOwner(contributor) {\r\n        require(amount > 0, \"Contribution amount must be greater than zero\");\r\n        require(_fundingTokenContract.transfer(address(this), amount), \"Couldn't transfer to crowdfunding contract\");\r\n\r\n        if (_contributions[contributor] == 0) {\r\n            _contributors.push(contributor);\r\n        }\r\n\r\n        _contributions[contributor] += amount;\r\n        \r\n        emit Contribute(contributor, amount);\r\n    }\r\n}"
+			},
+			"contracts/Admin.sol": {
+				"content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.19;\r\n\r\ncontract Admin {\r\n    address _owner;\r\n\r\n    constructor(address initialOwner) {\r\n        _owner = initialOwner;\r\n    }\r\n\r\n    modifier onlyOwner(address caller) {\r\n        if (caller != address(0)) {\r\n            require(caller == _owner, \"Address not authorized to call this method\");\r\n        } else {\r\n            require(msg.sender == _owner, \"Address not authorized to call this method\");\r\n        }\r\n        _;\r\n    }\r\n\r\n    function setOwner(address newOwner) public onlyOwner(newOwner) {\r\n        _owner = newOwner;\r\n    }\r\n\r\n    function getOwner() public view returns(address) {\r\n        return _owner;\r\n    }\r\n}"
+			}
+		},
+		"settings": {
+			"optimizer": {
+				"enabled": true,
+				"runs": 200
+			},
+			"outputSelection": {
+				"*": {
+					"": [
+						"ast"
+					],
+					"*": [
+						"abi",
+						"metadata",
+						"devdoc",
+						"userdoc",
+						"storageLayout",
+						"evm.legacyAssembly",
+						"evm.bytecode",
+						"evm.deployedBytecode",
+						"evm.methodIdentifiers",
+						"evm.gasEstimates",
+						"evm.assembly"
+					]
+				}
+			},
+			"remappings": [],
+			"evmVersion": "paris"
+		}
+	}
